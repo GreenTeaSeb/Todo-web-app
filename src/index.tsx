@@ -1,26 +1,25 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import App from './App';
-import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles';  import './index.css'
-import CssBaseline from "@material-ui/core/CssBaseline";
-
+import { MuiThemeProvider, createMuiTheme } from '@material-ui/core/styles'; 
 
 const theme = createMuiTheme({
      palette: {
        type: 'dark',
 
         background: {
-          default: "#e4f0e2",
+          default: "#282a36",
         },
         primary: {
-             main: '#7d30c0',
+             main: '#282a36',
         },
         secondary: {
-            main: '#11cb5f',
+            main: '#44475a',
         },
         info:{
-            main: '#8d74d5',
+            main: '#fcfdff',
         },
+
     }
 });
 

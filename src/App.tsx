@@ -1,19 +1,24 @@
 
 import React, { useState , useEffect} from 'react';
-import {Button,Dialog,Container, DialogActions, DialogContent,DialogContentText,DialogTitle, GridList, Menu, MenuItem, Select, TextField, GridListTileBar, GridListTile, makeStyles, Box, Paper, Fab, IconButton,Card, CardHeader, CardActions, CardContent} from '@material-ui/core';
+import {Button,Dialog, DialogActions, DialogContent, GridList, TextField, makeStyles, Paper, IconButton,Card, CardHeader, CardActions, CardContent, Typography} from '@material-ui/core';
 
 import InfoIcon from '@material-ui/icons/Info';
 import DeleteIcon from '@material-ui/icons/Delete';
-import EditIcon from '@material-ui/icons/Edit';
 import AddCircleIcon from '@material-ui/icons/AddCircle';
 import AddIcon from '@material-ui/icons/Add';
 import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import ArrowDropUpIcon from '@material-ui/icons/ArrowDropUp';
+import SettingsIcon from '@material-ui/icons/Settings'
 import { fade } from '@material-ui/core/styles/colorManipulator';
 
+import {createApi} from 'unsplash-js';
 
+import {Settings} from './components/settings';
+import {NewEntry} from './components/newEntry';
+import {NewCategory} from './components/newCategory';
+import {Warning} from './components/warning';
 import './main.css';
-import zIndex from '@material-ui/core/styles/zIndex';
+import { Message } from '@material-ui/icons';
 
 
 
@@ -27,7 +32,7 @@ const useStyles = makeStyles((theme) => ({
         color: theme.palette.primary.dark
     },
     tile: {
-         backgroundColor: theme.palette.info.light,
+         backgroundColor: theme.palette.secondary.main,
          width:'200px',
         maxWidth: "200px",
         margin: '2px',
@@ -58,7 +63,9 @@ const useStyles = makeStyles((theme) => ({
         float: 'right',
     },
     entryHeader: {
-        background: theme.palette.info.dark,
+        background: theme.palette.secondary.dark,
+        display: 'block',
+        overflow: 'hidden',
     },
     row: {
         marginBottom: "50px",
@@ -70,9 +77,19 @@ const useStyles = makeStyles((theme) => ({
         zindex: -1,
         backdropFilter: "blur(3px)",
     },
-    inputs: {
-        padding: '5px',
-    }
+
+    credits: {
+        overflow:   'none',
+        position:   'fixed',
+        width:      '100%',
+        left: 0,
+        bottom: 0,
+        fontSize: 'small',
+        color: theme.palette.info.main,
+    },
+    links: {
+        color: theme.palette.info.main,
+    },
 }))
 
 
@@ -90,6 +107,7 @@ const useLocalStorageState = (localkey:any) =>{
     return [value,setValue]
 }
 
+/*
 const entryTemplate = {
     id:'',
     title:'Example',
@@ -105,32 +123,98 @@ const categoryTemplate = {
     hidden: true,
 }
 
+const settingsTemplate = {
+    background_type: 'solid',
+}
+*/
+
+const unsplash_api = createApi({
+    accessKey: ""
+})
+
+
+
+
 const App = (props: any) => {
-    const [Categories,setCategories] = useLocalStorageState('Category');
+
+    //opening and closing
     const [newEntry, setNewEntry] = useState(false);
     const [newCategory, setNewCategory] = useState(false);
+    const [settingsOpen,setSettings] = useState(false);
+    const [showWarning, setShowWarning] = useState(false);
+
+
+
+    const [Categories,setCategories] = useLocalStorageState('Category');
     const [entries,setEntries] = useState(JSON.parse(localStorage.getItem('Entries')!) || []);
-    const [categoryAdd, setCategoryAdd] = useState(categoryTemplate)
+    
     const [defaultCategory, setDefaultCategory] = useState('');
+   
+    const [useUnsplash, setUseUnsplash] = useState(false);
+    
 
+    // data
+    const [categoryAdd, setCategoryAdd] = useState(null)
+    const [entryData,setEntryData] = useState(null);
+    const [backGroundData, setBackgroundData] = useState(null);
+    const [backGround, setBackground] = useLocalStorageState('background-url')
+    const [settingsData,setSettingsData] = useLocalStorageState('settings-data')
 
-    // entry data
-    const [entryData,setEntryData] = useState(entryTemplate);
-
+    const [background_resolution, setBackground_resolution] = useState("full")
+    const unsplash_query = "Scenery";
+    useEffect(() => {
+        if(useUnsplash){
+            unsplash_api.photos.getRandom({orientation: 'landscape', query: `${unsplash_query}`}).then(result => {
+                if(result.errors){
+                    console.log("Error involving unsplash: ", result.errors[0]);
+                }
+                else{
+                    const photo: any = result.response;
+                    setBackgroundData(photo);
+                    unsplash_api.photos.trackDownload({
+                        downloadLocation: photo.links.download_location,
+                    })
+                    
+                    switch(background_resolution){
+                        case "small":
+                            setBackground(photo.urls.small);
+                            break;
+                        case "regular":
+                            setBackground(photo.urls.regular);
+                            break;
+                        case "full":
+                            setBackground(photo.urls.full);
+                            break;
+                    }
+                }
+            })
+        }else{
+            
+        }
+        
+    }, [])
 
     const toggle = () => {
       setNewEntry(!newEntry);
+    };
+    const toggleSettings = () => {
+        setSettings(!settingsOpen)
     };
 
     const toggleNewCategory = () => {
       setNewCategory(!newCategory);
     };
 
+    const toggleWarning = () => {
+        setShowWarning(!showWarning);
+    }
+
     const entryChange = (event: any)=>{
         const data = event.target.value;
+        const entry_Data: any = entryData;
         setEntryData(
             {
-                ...entryData,
+                ...entry_Data,
                 [event.target.name]: data   
             });
     }
@@ -142,7 +226,8 @@ const App = (props: any) => {
         localStorage.setItem('Entries', JSON.stringify(copy));
 
         //set cat to visible
-        toggleCategory(entryData.category,false);
+        const entry_data: any = entryData;
+        toggleCategory(entry_data.category,false);
     }
 
     const toggleCategory = (title: string, visible: boolean) => {
@@ -155,9 +240,10 @@ const App = (props: any) => {
         setCategories(newArray);
     }
     const categoryChange = (event:any) => {
+        const cat_data: any = categoryAdd;
         setCategoryAdd(
             {
-                ...categoryAdd,
+                ...cat_data,
             title: event.target.value,
             id: Math.random().toString(36).substr(2,9),
             }
@@ -180,14 +266,13 @@ const App = (props: any) => {
     
     const addNewToCategory = (cat:string) => {
         setDefaultCategory(cat); toggle(); 
-                            
+        const entry_data: any = entryData;                         
         setEntryData({
-             ...entryData,
+             ...entry_data,
             category: cat   
          });
                             
     }
-    document.body.style.backgroundColor = "linear-gradient(0deg, rgba(19,0,19,1) 0%, rgba(5,63,69,1) 100%);"
 
     const deleteEntry = (ent:any) => {
        let newArr:any = [];
@@ -212,140 +297,143 @@ const App = (props: any) => {
 
     const classes = useStyles();
     
+    
+    
     return (
-        <div className = 'root'>
-             <IconButton  aria-label="add category" onClick={toggleNewCategory}>
-                <AddCircleIcon fontSize="small" />
-             </IconButton>
+        <div className = 'root' style={{backgroundImage: `url(${backGround})`}}>
+            <div>
+                {/* Overall buttons*/}
+                <IconButton  aria-label="add category" onClick={toggleNewCategory}>
+                    <AddCircleIcon fontSize="small" />
+                </IconButton>
+
+                <IconButton aria-label="settings" onClick={toggleSettings} className = {classes.delete}>
+                    <SettingsIcon fontSize="small" />
+                </IconButton>
 
 
-             <IconButton aria-label="delete" onClick={ () => {clearAll()}} className = {classes.delete}>
-                <DeleteIcon fontSize="small" />
-             </IconButton>
-
-            <Dialog open = {newEntry} maxWidth = "md" fullWidth >
-                <DialogContent>
-                    <form >
-                        <TextField name = "title"  onChange = {event => entryChange(event) } className = {classes.inputs}
-                            autoFocus label = "Entry Title" fullWidth required variant = 'filled'
-                        />  
-                        
-                        <TextField name = "date" label = "Due date" type = "date"  InputLabelProps={{ shrink: true, }} 
-                         className = {classes.inputs}
-                        onChange = {event => entryChange(event)} 
-                        variant = 'filled'
-                        /> 
-                         
-                        <TextField name = "desc"  onChange = {event => entryChange(event)}
-                             label = "Description" fullWidth multiline rowsMax = {25} variant = 'filled'
-                            className = {classes.inputs}
-                        />              
-
-                   </form>                   
-                </DialogContent>
-
-            <DialogActions>
-                <Button type="submit"  onClick={entryAdd} color = "primary"> Add entry</Button>
-                <Button onClick={toggle} color = "primary"> Cancel</Button>
-            </DialogActions>
-            </Dialog>
+                <IconButton aria-label="delete" onClick={toggleWarning} className = {classes.delete} >
+                    <DeleteIcon fontSize="small" />
+                </IconButton>
 
 
-            <Dialog open = {newCategory} maxWidth = "md" fullWidth >
-                <DialogContent>
-                    <form >
-                        <TextField name = "category"  onChange = {event => categoryChange(event)}
-                            autoFocus label = "Category name" fullWidth required
-                        />  
+                {/* Pop up dialogs */}
+                <NewEntry open={newEntry} onClose={toggle} EntryAdd = {entryAdd} EntryChange = {entryChange}/>
+                
+                <NewCategory open={newCategory} onClose = {toggleNewCategory} Change = {categoryChange} Add = {addCategory}  />
+            
 
-                   </form>                   
-                </DialogContent>
+                <Settings open = {settingsOpen} onClose = {toggleSettings} onConfirm = {() => {toggleSettings()}}/>
 
-                <DialogActions>
-                    <Button onClick={ e => addCategory(e)} color = "primary"> Add category</Button>
-                    <Button onClick={toggleNewCategory} color = "primary"> Cancel</Button>
-                </DialogActions>
-            </Dialog>
+                <Warning open={showWarning} onClose = {toggleWarning} onConfirm = { () => {clearAll(); toggleWarning();}} Message='Hi' />
+                {
+                Categories.map( (cat:any) => {
+                    return(
+                        <div className = {classes.row}>
+                            <Paper className = {classes.cateGoryTitle}>
+                                {cat.title}
+                                
+                                <IconButton aria-label="delete" onClick={ () => {deleteCategory(cat.id)}} className = {classes.delete}>
+                                    <DeleteIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton aria-label="add" onClick={() => {addNewToCategory(cat.id)}} className = {classes.delete}>
+                                    <AddIcon fontSize="small" />
+                                </IconButton>
+
+                                
+                                <IconButton aria-label="expand" onClick={() => {toggleCategory(cat.id,!cat.hidden)}} className = {classes.delete}>
+                                                
+                                                {
+                                                    (() => {
+                                                        if (cat.hidden) {
+                                                            return (
+                                                                <ArrowDropDownIcon  fontSize="small"/>
+                                                            );
+                                                        }
+                                                        else{
+                                                            return (
+                                                                <ArrowDropUpIcon   fontSize="small" />
+                                                            );
+                                                        }
+                                                    })()
+                                                }           
+
+                                
+                                                
+                            </IconButton>
+                                        
+                                
+                            </Paper>
+                            
+                            {(() => {
+                                if(cat.hidden == false){
+                                    return(
+                                        <div className={classes.rowBackground}>
+                                        <Paper className = {classes.paper}> 
+                                            <GridList className ={classes.gridList}>
+                                                {entries.map((entry:any) => {
+                                                    if(cat.id == entry.category){
+                                                    return(
+                                                        <Card className = {classes.tile}>
+                                                            <CardHeader 
+                                                                title = {<Typography gutterBottom noWrap variant="h4" >{entry.title}  </Typography>}
+                                                                className = {classes.entryHeader}   
+                                                            />
+                                                            <CardContent> {entry.date}</CardContent>
+                                                            <CardActions>
+                                                                <IconButton aria-label="delete" onClick={ () => {}}>
+                                                                    <InfoIcon fontSize="small" />
+                                                                </IconButton>
+                                                                <IconButton aria-label="delete" onClick={ () => {deleteEntry(entry)}} className = {classes.delete}>
+                                                                    <DeleteIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </CardActions>
+                                                        </Card>
+                                                    )
+                                                    }
+                                                })}
+                                            </GridList>
+                                        </Paper>
+                                        </div>
+                                    )
+                                }
+                        })()
+                        }
+
+                        </div>
+                        );
+                    })
+                }
         
-            {
-            Categories.map( (cat:any) => {
-                return(
-                    <div className = {classes.row}>
-                        <Paper className = {classes.cateGoryTitle}>
-                            {cat.title}
+            </div>
+            
+            {(() =>{ // Credit to photos provided by the lovely people who upload to unsplash
+                const data: any = backGroundData;
+                if(data != null  && useUnsplash == true){
+
+                    return(
+                        <text className= {classes.credits}> 
+                            Photo by  <a href= {data.user.links.html}  className ={classes.links}>{data.user.name}</a> 
+                            on  
                             
-                            <IconButton aria-label="delete" onClick={ () => {deleteCategory(cat.id)}} className = {classes.delete}>
-                                <DeleteIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton aria-label="add" onClick={() => {addNewToCategory(cat.id)}} className = {classes.delete}>
-                                <AddIcon fontSize="small" />
-                            </IconButton>
-
-                            
-                            <IconButton aria-label="expand" onClick={() => {toggleCategory(cat.id,!cat.hidden)}} className = {classes.delete}>
-                                            
-                                            {
-                                                (() => {
-                                                    if (cat.hidden) {
-                                                        return (
-                                                             <ArrowDropDownIcon  fontSize="small"/>
-                                                        );
-                                                    }
-                                                    else{
-                                                        return (
-                                                             <ArrowDropUpIcon   fontSize="small" />
-                                                        );
-                                                    }
-                                                })()
-                                            }           
-
-                               
-                                            
-                           </IconButton>
-                                    
-                            
-                        </Paper>
-                        
-                        {(() => {
-                            if(cat.hidden == false){
-                                return(
-                                    <div className={classes.rowBackground}>
-                                    <Paper className = {classes.paper}> 
-                                        <GridList className ={classes.gridList}>
-                                            {entries.map((entry:any) => {
-                                                if(cat.id == entry.category){
-                                                return(
-                                                    <Card className = {classes.tile}>
-                                                        <CardHeader
-                                                            title = {entry.title}
-                                                            className = {classes.entryHeader}
-                                                        />
-                                                        <CardContent> {entry.date}</CardContent>
-                                                        <CardActions>
-                                                            <IconButton aria-label="delete" onClick={ () => {}}>
-                                                                <InfoIcon fontSize="small" />
-                                                            </IconButton>
-                                                            <IconButton aria-label="delete" onClick={ () => {deleteEntry(entry)}} className = {classes.delete}>
-                                                                <DeleteIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </CardActions>
-                                                    </Card>
-                                                )
-                                                }
-                                            })}
-                                        </GridList>
-                                    </Paper>
-                                    </div>
-                                )
-                            }
-                      })()
-                      }
-
-                    </div>
-                    );
-                })
-            }
-
+                            <a href="https://unsplash.com/?utm_source=your_app_name&utm_medium=referral" 
+                            className ={classes.links}
+                            > Unsplash</a>
+                        </text>
+                    )
+                }else{
+                    return(
+                        <div className = {classes.credits}>
+                            <a
+                            href={backGround}
+                            className= {classes.links}
+                            >Photo</a>
+                        </div>
+                    )
+                }
+                
+            })()}
+        
         </div>
     );
 }

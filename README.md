@@ -1,1 +1,1 @@
-#Shitty React app
+# Todo app made with react
